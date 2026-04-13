@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev src/index.ts",
     "build": "wrangler deploy --dry-run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "db:migrate:local": "wrangler d1 migrations apply brp-platform --local"
   },
   "dependencies": {
     "@brp/types": "0.1.0",

@@ -1,11 +1,12 @@
 import { createMockBrpService } from "@brp/brp-api";
 import type { BrpAddOrderItemRequest, BrpCreateOrderRequest, BrpPaymentLinkRequest } from "@brp/types";
+import { handleAdmin, type Env } from "./admin-routes";
 
 const mockBrp = createMockBrpService();
 
-type JsonValue = Record<string, unknown> | unknown[];
+export type { Env } from "./admin-routes";
 
-const json = (data: JsonValue, init?: ResponseInit): Response => {
+const json = (data: unknown, init?: ResponseInit): Response => {
   return new Response(JSON.stringify(data), {
     ...init,
     headers: {
@@ -20,12 +21,15 @@ const notFound = (): Response => json({ error: "Not found" }, { status: 404 });
 const badRequest = (message: string): Response => json({ error: message }, { status: 400 });
 
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
       return json({ ok: true, service: "worker" });
     }
+
+    const adminRes = await handleAdmin(request, env, mockBrp);
+    if (adminRes) return adminRes;
 
     if (url.pathname === "/mock/brp/businessunits" && request.method === "GET") {
       const data = await mockBrp.getBusinessUnits();

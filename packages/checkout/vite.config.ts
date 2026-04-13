@@ -5,8 +5,14 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    port: 5173,
+    strictPort: true,
     proxy: {
       "/mock": {
+        target: "http://127.0.0.1:8787",
+        changeOrigin: true
+      },
+      "/admin": {
         target: "http://127.0.0.1:8787",
         changeOrigin: true
       }

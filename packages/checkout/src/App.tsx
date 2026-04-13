@@ -18,8 +18,15 @@ import { EmailStep } from "./steps/EmailStep.tsx";
 import { ProductsStep } from "./steps/ProductsStep.tsx";
 import { SummaryPaymentStep } from "./steps/SummaryPaymentStep.tsx";
 
+function headerSurfaceClass(template: string): string {
+  if (template === "bold") return "bg-slate-900 text-white border-slate-800";
+  if (template === "branded")
+    return "border-transparent bg-gradient-to-r from-slate-900 via-indigo-900 to-slate-900 text-white";
+  return "bg-[var(--checkout-surface,#fff)] text-slate-900 border-[var(--checkout-border,#e2e8f0)]";
+}
+
 export function App() {
-  const { config, isLoading: brandingLoading, error: brandingConfigError } = useBranding();
+  const { config, isLoading: brandingLoading, error: brandingConfigError, isPreviewMode } = useBranding();
 
   const [step, setStep] = useState(1);
   const [businessUnits, setBusinessUnits] = useState<BrpBusinessUnit[]>([]);
@@ -119,16 +126,30 @@ export function App() {
     setEmail("");
   }, []);
 
+  const tpl = config.template;
+  const headerMuted = tpl === "minimal" ? "text-slate-500" : "text-white/70";
+
   return (
     <div
       className="min-h-dvh bg-[var(--brand-secondary,#f8fafc)] text-slate-900"
-      data-template="minimal"
+      data-template={tpl}
     >
-      <header className="border-b border-[var(--checkout-border,#e2e8f0)] bg-[var(--checkout-surface,#fff)]">
+      {isPreviewMode ? (
+        <div
+          className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-950"
+          role="status"
+        >
+          Forhåndsvisning: betaling er deaktiveret
+        </div>
+      ) : null}
+      <header className={`border-b ${headerSurfaceClass(tpl)}`}>
         <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-4 sm:px-5">
           <div className="flex min-w-0 items-center gap-3">
             {brandingLoading ? (
-              <div className="h-9 w-24 animate-pulse rounded-lg bg-slate-100" aria-hidden />
+              <div
+                className={`h-9 w-24 animate-pulse rounded-lg ${tpl === "minimal" ? "bg-slate-100" : "bg-white/10"}`}
+                aria-hidden
+              />
             ) : (
               <img
                 src={config.logoUrl}
@@ -139,10 +160,10 @@ export function App() {
               />
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-slate-900">
+              <p className={`truncate text-sm font-semibold ${tpl === "minimal" ? "text-slate-900" : "text-white"}`}>
                 {brandingLoading ? "…" : config.businessName}
               </p>
-              <p className="truncate text-xs text-slate-500">Secure checkout</p>
+              <p className={`truncate text-xs ${headerMuted}`}>Secure checkout</p>
             </div>
           </div>
         </div>

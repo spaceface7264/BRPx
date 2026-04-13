@@ -6,6 +6,7 @@ import {
   formatPriceIncVat
 } from "../api/brp.ts";
 import type { BrpBusinessUnit, BrpPersonVerifyResponse, BrpProduct } from "../api/types.ts";
+import { useBranding } from "../context/BrandingContext.tsx";
 
 type SummaryPaymentStepProps = {
   businessUnit: BrpBusinessUnit;
@@ -22,10 +23,12 @@ export function SummaryPaymentStep({
   verify,
   onBack
 }: SummaryPaymentStepProps) {
+  const { isPreviewMode } = useBranding();
   const [isPaying, setIsPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pay = async (): Promise<void> => {
+    if (isPreviewMode) return;
     setError(null);
     setIsPaying(true);
     try {
@@ -107,13 +110,15 @@ export function SummaryPaymentStep({
       <button
         type="button"
         onClick={() => void pay()}
-        disabled={isPaying}
+        disabled={isPaying || isPreviewMode}
         className="w-full rounded-xl px-4 py-3.5 text-base font-semibold text-white shadow-sm transition enabled:active:scale-[0.99] disabled:opacity-60"
         style={{ backgroundColor: "var(--brand-primary, #111827)" }}
       >
-        {isPaying ? "Redirecting…" : "Pay securely"}
+        {isPreviewMode ? "Forhåndsvisning" : isPaying ? "Redirecting…" : "Pay securely"}
       </button>
-      <p className="text-center text-xs text-slate-400">You will leave this site to complete payment.</p>
+      <p className="text-center text-xs text-slate-400">
+        {isPreviewMode ? "Betaling er slået fra i forhåndsvisning." : "You will leave this site to complete payment."}
+      </p>
     </div>
   );
 }

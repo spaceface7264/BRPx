@@ -1,52 +1,72 @@
-function App() {
-  return (
-    <main className="page">
-      <h1>BRP Front Admin</h1>
-      <p className="lead">Tenant dashboard for BRP connection, branding, and publish settings.</p>
+import type { ReactElement } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { useAuth } from "./context/AuthContext.tsx";
+import { useTenant } from "./context/TenantContext.tsx";
+import { DashboardLayout } from "./layouts/DashboardLayout.tsx";
+import { Dashboard } from "./pages/Dashboard.tsx";
+import { Login } from "./pages/Login.tsx";
+import { Onboarding } from "./pages/Onboarding.tsx";
+import { Register } from "./pages/Register.tsx";
 
-      <section className="section">
-        <h2>BRP Connection</h2>
-        <div className="row">
-          <input placeholder="BRP API URL" />
-          <input placeholder="BRP API key" />
-          <button>Test connection</button>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Branding</h2>
-        <div className="row">
-          <input placeholder="Business name" />
-          <input placeholder="Primary color (#000000)" />
-          <input placeholder="Secondary color (#ffffff)" />
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Template</h2>
-        <div className="row">
-          <label>
-            <input type="radio" name="template" defaultChecked />
-            Minimal
-          </label>
-          <label>
-            <input type="radio" name="template" />
-            Bold
-          </label>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2>Domain and Publish</h2>
-        <div className="row">
-          <input placeholder="Custom domain (shop.example.dk)" />
-          <button>Verify domain</button>
-          <button>Preview</button>
-          <button>Go live</button>
-        </div>
-      </section>
-    </main>
-  );
+function ProtectedRoute({ children }: { children: ReactElement }) {
+  const { token, isReady } = useAuth();
+  if (!isReady) {
+    return <div className="flex min-h-dvh items-center justify-center bg-slate-50 text-slate-500">Indlæser…</div>;
+  }
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
-export default App;
+function DashboardGate({ children }: { children: ReactElement }) {
+  const { tenant } = useTenant();
+  const { isReady, token } = useAuth();
+  if (!isReady || !token) return children;
+  if (!tenant) {
+    return <div className="flex min-h-dvh items-center justify-center bg-slate-50 text-slate-500">Indlæser…</div>;
+  }
+  if (tenant.onboardingStep < 5) {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return children;
+}
+
+function HomeRedirect() {
+  const { token, isReady } = useAuth();
+  if (!isReady) {
+    return <div className="flex min-h-dvh items-center justify-center bg-slate-50 text-slate-500">Indlæser…</div>;
+  }
+  if (!token) return <Navigate to="/login" replace />;
+  return <Navigate to="/dashboard" replace />;
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/onboarding"
+        element={
+          <ProtectedRoute>
+            <Onboarding />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        element={
+          <ProtectedRoute>
+            <DashboardGate>
+              <DashboardLayout />
+            </DashboardGate>
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Route>
+      <Route path="/" element={<HomeRedirect />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
