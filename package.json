@@ -1,0 +1,17 @@
+{
+  "name": "brp-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "packages/*",
+    "shared/*"
+  ],
+  "scripts": {
+    "dev:admin": "npm run dev -w admin",
+    "dev:checkout": "npm run dev -w checkout",
+    "dev:worker": "npm run dev -w worker",
+    "build": "npm run build -ws",
+    "lint": "npm run lint -ws --if-present",
+    "typecheck": "npm run typecheck -ws --if-present"
+  }
+}

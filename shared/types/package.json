@@ -1,0 +1,11 @@
+{
+  "name": "@brp/types",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "echo \"types package ready\"",
+    "typecheck": "echo \"types package typecheck skipped\""
+  }
+}

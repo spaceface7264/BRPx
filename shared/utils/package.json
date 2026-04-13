@@ -1,0 +1,11 @@
+{
+  "name": "@brp/utils",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "echo \"utils package ready\"",
+    "typecheck": "echo \"utils package typecheck skipped\""
+  }
+}

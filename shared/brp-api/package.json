@@ -1,0 +1,14 @@
+{
+  "name": "@brp/brp-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "echo \"brp-api package ready\"",
+    "typecheck": "echo \"brp-api package typecheck skipped\""
+  },
+  "dependencies": {
+    "@brp/types": "0.1.0"
+  }
+}

@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+
+# Builds
+dist
+dist-ssr
+*.tsbuildinfo
+
+# Logs & local
+logs
+*.log
+npm-debug.log*
+*.local
+.DS_Store
+
+# Env (keep examples)
+.env
+.env.*
+!.env.example
+
+# Wrangler / Cloudflare
+.wrangler
+.dev.vars
+
+# Editor
+.idea
+.vscode/*
+!.vscode/extensions.json

@@ -1,0 +1,367 @@
+# BRP Frontend Platform MVP: Claude Code Build Prompt
+
+## What we're building
+
+A multi-tenant platform that lets businesses using BRP Systems replace their default goactivebooking.dk purchase frontend with a branded, modern alternative. The business connects their BRP API key, picks a template, sets their branding, and gets a hosted checkout frontend on their own domain.
+
+The core BRP purchase flow is universal: **Select Location > Select Product > Sign up / Log in > Payment**. Our platform skins and hosts this flow per tenant.
+
+---
+
+## Architecture
+
+### Stack
+- **Frontend (tenant-facing checkout):** React SPA, Vite, deployed to Cloudflare Pages
+- **Admin panel:** React SPA, Vite, deployed to Cloudflare Pages
+- **Shared component library:** Both apps share a common UI component set (buttons, inputs, cards, loading skeletons, step indicators) in `shared/ui/`
+- **API proxy + routing:** Cloudflare Workers
+- **Tenant config + data:** Cloudflare D1 (SQLite) for structured tenant data, KV for fast domain-to-tenant lookups
+- **Custom domains:** Cloudflare for SaaS (custom hostnames via API)
+- **Auth (admin panel):** Simple email + password, stored in D1 with hashed passwords. No third-party auth provider for MVP.
+
+### Repo structure
+```
+brp-platform/
+  packages/
+    checkout/          # tenant-facing purchase SPA (React)
+    admin/             # admin panel SPA (React)
+    worker/            # Cloudflare Worker (proxy + routing)
+  shared/
+    types/             # shared TypeScript types
+    ui/                # shared React components (Button, Input, Card, Skeleton, StepIndicator)
+    brp-api/           # BRP API client and response normalization
+    utils/             # shared utilities (formatPrice, roundToHalfKrone, etc.)
+  wrangler.toml
+  package.json
+```
+
+Use a monorepo. Packages share types and the BRP API client.
+
+---
+
+## Cloudflare Worker (the brain)
+
+The Worker handles three responsibilities:
+
+### 1. Domain routing
+Every incoming request is matched to a tenant:
+- Check the `Host` header against KV store (`domain -> tenant_id`)
+- Load tenant config from D1 (API key, template, branding, active status)
+- If no match, return a generic 404 page
+
+### 2. BRP API proxy
+The checkout SPA never talks to BRP directly. All BRP requests go through the Worker:
+- `GET /api/locations` - fetch locations for this tenant's BRP account
+- `GET /api/products?locationId=X` - fetch products at a location
+- `POST /api/member/lookup` - check if email exists in BRP
+- `POST /api/member/create` - create new member in BRP
+- `POST /api/payment/create` - generate BRP payment link
+- The Worker injects the tenant's BRP API credentials on every proxied request
+- Cache product/location data in KV with 15-minute TTL (these rarely change)
+- Never expose BRP API keys to the client
+
+### 3. Admin API
+Authenticated endpoints for the admin panel:
+- `POST /admin/auth/login` - login, return JWT
+- `GET /admin/tenant` - get tenant config
+- `PUT /admin/tenant` - update branding, template selection
+- `PUT /admin/tenant/brp` - update BRP API credentials (validate before saving)
+- `POST /admin/tenant/domain` - add custom domain
+- `GET /admin/preview` - return a preview URL with draft config
+
+---
+
+## D1 Schema
+
+```sql
+CREATE TABLE tenants (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  brp_api_url TEXT,
+  brp_api_key TEXT,
+  brp_api_connected BOOLEAN DEFAULT FALSE,
+  template TEXT DEFAULT 'minimal',
+  branding_logo_url TEXT,
+  branding_primary_color TEXT DEFAULT '#000000',
+  branding_secondary_color TEXT DEFAULT '#ffffff',
+  branding_font TEXT DEFAULT 'system',
+  branding_business_name TEXT,
+  custom_domain TEXT,
+  domain_verified BOOLEAN DEFAULT FALSE,
+  active BOOLEAN DEFAULT FALSE,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE tenant_settings (
+  tenant_id TEXT PRIMARY KEY REFERENCES tenants(id),
+  skip_location_step BOOLEAN DEFAULT FALSE,
+  default_location_id TEXT,
+  product_display TEXT DEFAULT 'cards',
+  show_product_descriptions BOOLEAN DEFAULT TRUE,
+  featured_product_ids TEXT,
+  custom_signup_fields TEXT,
+  terms_url TEXT,
+  privacy_url TEXT,
+  success_redirect_url TEXT,
+  ga_measurement_id TEXT,
+  consent_toggles TEXT
+);
+```
+
+KV namespace `DOMAIN_MAP`:
+- Key: `yogastudio.dk` -> Value: `tenant_abc123`
+- Key: `shop.climbinggym.dk` -> Value: `tenant_def456`
+
+---
+
+## Checkout SPA (tenant-facing)
+
+This is what end customers see. It must be fast, mobile-first, and visually clean.
+
+### Flow
+
+The SPA is a single-page step flow. No router needed, just state-driven steps:
+
+1. **Location step** (skipped if single location or `skip_location_step` is true)
+   - Fetch locations from `/api/locations`
+   - Display as cards with name and address
+   - Clicking a location advances to step 2
+
+2. **Product step**
+   - Fetch products from `/api/products?locationId=X`
+   - Display based on `product_display` setting (cards or list)
+   - Group by category if products have categories
+   - Show name, price, description (if enabled)
+   - Highlight featured products if configured
+   - Clicking a product advances to step 3
+
+3. **Signup/login step**
+   - Email field first
+   - On blur/submit, check `/api/member/lookup` to see if they exist in BRP
+   - If existing: show login or "welcome back" flow
+   - If new: show signup form with required fields (name, email, phone, address, birthdate)
+   - Plus any custom fields from `custom_signup_fields`
+   - Terms/consent checkboxes at bottom
+
+4. **Payment step**
+   - Show order summary (product, price, location)
+   - Call `/api/payment/create` to get BRP payment link
+   - Redirect to BRP payment page (or embed if BRP supports it)
+
+5. **Confirmation step**
+   - Success message with business branding
+   - Optional redirect to `success_redirect_url`
+
+### Branding system
+
+The SPA loads tenant config on init (injected by the Worker as a global or fetched from `/api/config`). Branding is applied via CSS custom properties:
+
+```css
+:root {
+  --brand-primary: var(--tenant-primary, #000000);
+  --brand-secondary: var(--tenant-secondary, #ffffff);
+  --brand-font: var(--tenant-font, system-ui);
+  --brand-radius: 8px;
+}
+```
+
+The logo is displayed in the header. Primary color is used for buttons, active states, and accents. Keep the layout structure identical across tenants. Branding is colors, logo, and fonts only. No layout customization in MVP.
+
+### Templates
+
+MVP ships two templates. They share the same flow logic but differ in visual presentation:
+
+**Minimal:** White background, single column, lots of whitespace, subtle borders, product cards in a vertical list. Clean and safe. Works for any business type.
+
+**Bold:** Dark header area with business branding, product cards in a grid (2 columns on desktop), slightly more visual weight. Better for gyms and fitness brands.
+
+Templates are CSS variations, not separate codebases. Use a `data-template` attribute on the root element and scope template styles accordingly.
+
+### Technical conventions
+- All prices from BRP are in the smallest currency unit (ore/cents). Divide by 100 for display. Format with Danish locale (`da-DK`).
+- Use `roundToHalfKrone()` for DKK prices: round to nearest 0.50 kr.
+- Mobile-first responsive design. The checkout must work perfectly on a phone.
+- No framework. Vanilla JS with ES modules. Keep it light and fast.
+- Minimal dependencies. No UI library. CSS is hand-written.
+- Step transitions should feel smooth (simple CSS transitions, no heavy animation library).
+- Form validation is inline, not alert-based.
+- Show loading skeletons while fetching data, not spinners.
+
+---
+
+## Admin Panel
+
+Simple dashboard where the business owner configures their storefront. This is internal tooling quality, not consumer-grade UI. Functionality over polish.
+
+### Pages
+
+**Login page:** Email + password.
+
+**Dashboard (single page after login):**
+
+Section 1: BRP connection
+- Input for BRP API URL and API key
+- "Test connection" button that validates credentials against BRP
+- Status indicator (connected / not connected / error)
+
+Section 2: Branding
+- Business name input
+- Logo upload (store in R2 or as base64 in D1 for MVP)
+- Primary color picker
+- Secondary color picker
+- Font selector (system, Inter, DM Sans -- just a few options)
+
+Section 3: Template
+- Visual preview of each template (can be static screenshots for MVP)
+- Radio select between templates
+
+Section 4: Settings
+- Product display mode (cards/list)
+- Toggle: skip location step
+- Terms URL input
+- Privacy URL input
+- GA measurement ID input
+
+Section 5: Domain
+- Current domain status
+- Input for custom domain
+- CNAME instructions displayed after they enter their domain
+- Verification status
+
+Section 6: Preview + publish
+- "Preview" button opens their storefront with current config
+- "Go live" toggle (sets `active = true`)
+
+### Tech
+- React is fine here since this is an internal tool
+- Tailwind for quick styling
+- JWT auth stored in localStorage (fine for MVP)
+
+---
+
+## BRP API client (shared)
+
+Create a normalized BRP API client in `shared/brp-api/`. This abstracts BRP's API quirks so the rest of the codebase works with clean types.
+
+```typescript
+interface BRPClient {
+  getLocations(): Promise<Location[]>
+  getProducts(locationId: string): Promise<Product[]>
+  lookupMember(email: string): Promise<MemberLookupResult>
+  createMember(data: CreateMemberPayload): Promise<Member>
+  createPaymentLink(data: PaymentPayload): Promise<PaymentLink>
+  validateCredentials(): Promise<boolean>
+}
+
+interface Location {
+  id: string
+  name: string
+  address: string
+  city: string
+  zip: string
+}
+
+interface Product {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  priceInOre: number
+  displayPrice: string
+  locationId: string
+  type: 'membership' | 'punchcard' | 'trial' | 'dropin' | 'event' | 'other'
+}
+```
+
+The BRP API documentation is not publicly available. We'll need to reverse-engineer endpoints during development. Start with the proxy pattern: the Worker passes through requests to BRP and we normalize responses on the way back. The exact endpoint paths and auth method (header, query param, basic auth) will depend on what we discover.
+
+For initial development, create a mock BRP API that returns realistic fake data so the entire flow can be built and tested without a live BRP connection.
+
+---
+
+## Mock BRP API (for development)
+
+Create a mock server (can be a simple Worker route at `/mock/brp/*`) that simulates the BRP API:
+
+- 3 locations (Aarhus, Copenhagen, Odense)
+- 8-10 products across categories (memberships, punchcards, trials)
+- Member lookup that returns "found" for test@test.com, "not found" for anything else
+- Payment link creation that returns a fake URL
+- Realistic response shapes and delays (200-500ms)
+
+This lets us build the entire frontend without BRP access and swap in the real API later.
+
+---
+
+## Deployment
+
+### Cloudflare setup
+- One Workers project for the API proxy + admin API
+- Two Pages projects: one for checkout SPA, one for admin panel
+- D1 database for tenant data
+- KV namespace for domain mapping and product caching
+- R2 bucket for logo uploads (optional, can use base64 in D1 for MVP)
+
+### Environment
+- `dev`: local Wrangler dev server with mock BRP API
+- `staging`: deployed to Cloudflare with mock BRP
+- `production`: deployed with real BRP connections
+
+### Domain structure (platform-owned)
+- `admin.brpfront.dk` - admin panel
+- `preview-{tenantId}.brpfront.dk` - preview URLs
+- Custom domains via Cloudflare for SaaS
+
+---
+
+## Development order
+
+Build in this sequence. Each step should be deployable and testable before moving on:
+
+1. **Monorepo setup** - Vite configs, shared types, wrangler.toml, local dev scripts
+2. **Mock BRP API** - fake endpoints in the Worker so we can develop against something
+3. **Worker proxy layer** - domain routing, tenant config loading, BRP API proxying
+4. **Checkout SPA: product browsing** - location select, product list, branding applied
+5. **Checkout SPA: signup flow** - member lookup, signup form, validation
+6. **Checkout SPA: payment + confirmation** - payment link generation, success page
+7. **Admin panel: auth + BRP connection** - login, API key config, test connection
+8. **Admin panel: branding + template** - color/logo/font config, template selection
+9. **Admin panel: domain + publish** - custom domain setup, go-live toggle
+10. **Template: "bold" variant** - second template CSS
+
+---
+
+## Code style and conventions
+
+- TypeScript everywhere
+- No em-dashes in any copy or output, ever
+- Prefer `const` over `let`
+- Use early returns
+- Keep functions small and focused
+- Error handling: try/catch at the boundary (Worker request handler, SPA fetch calls), not deep in business logic
+- CSS: use `clamp()` for responsive typography
+- Naming: `camelCase` for JS, `kebab-case` for CSS classes, `SCREAMING_SNAKE` for env vars
+- No `any` type. Define interfaces for everything.
+- Comments only where the "why" isn't obvious from the code
+- Commit messages: conventional commits (`feat:`, `fix:`, `chore:`)
+
+
+Reference the BRP API documentation in docs/brp-api-reference.md for all endpoint paths, data shapes, and the order-based checkout flow.
+
+
+---
+
+## What NOT to build in MVP
+
+- No analytics dashboard (just support GA via measurement ID)
+- No A/B testing
+- No email notifications or transactional emails
+- No multi-user accounts (one login per tenant)
+- No billing/subscription management (handle payments manually or via Stripe later)
+- No event/class booking flows (memberships, punchcards, trials only)
+- No drag-and-drop page builder
+- No internationalization (Danish only for MVP)
+- No Mailchimp or email marketing integrations
