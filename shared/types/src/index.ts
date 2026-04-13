@@ -181,3 +181,50 @@ export interface BrpPersonVerifyResponse {
   found: boolean;
   person: BrpPerson | null;
 }
+
+/** Payload for creating a new member in BRP. */
+export interface BrpCreateMemberRequest {
+  firstname: string;
+  lastname: string;
+  email: string;
+  phone: string;
+  streetaddress: string;
+  postalcode: string;
+  city: string;
+  birthdate: string;
+}
+
+export interface BrpCreateMemberResponse {
+  person: BrpPerson;
+}
+
+/** Tenant config returned by /api/config. */
+export interface TenantConfig {
+  tenantId: string;
+  businessName: string;
+  template: "minimal" | "bold";
+  logoUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  font: string;
+  skipLocationStep: boolean;
+  defaultLocationId: string | null;
+  productDisplay: "cards" | "list";
+  showProductDescriptions: boolean;
+  termsUrl: string | null;
+  privacyUrl: string | null;
+  successRedirectUrl: string | null;
+}
+
+/**
+ * Normalized BRP API client interface.
+ * Abstracts BRP quirks so the rest of the codebase works with clean types.
+ */
+export interface BRPClient {
+  getLocations(): Promise<Location[]>;
+  getProducts(locationId: string): Promise<Product[]>;
+  lookupMember(email: string): Promise<MemberLookupResult>;
+  createMember(data: BrpCreateMemberRequest): Promise<BrpPerson>;
+  createPaymentLink(data: { orderId: number; email: string }): Promise<PaymentLink>;
+  validateCredentials(): Promise<boolean>;
+}

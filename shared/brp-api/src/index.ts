@@ -1,6 +1,8 @@
 import type {
   BrpAddOrderItemRequest,
   BrpBusinessUnitsResponse,
+  BrpCreateMemberRequest,
+  BrpCreateMemberResponse,
   BrpCreateOrderRequest,
   BrpOrder,
   BrpOrderItem,
@@ -249,6 +251,7 @@ export const createMockBrpService = () => {
   let nextOrderId = 12000;
   let nextOrderNumber = 5100;
   let nextItemId = 88000;
+  let nextPersonId = 6000;
 
   const getProduct = (productid: number): BrpProduct | undefined =>
     productSeeds.find((p) => p.id === productid);
@@ -379,6 +382,16 @@ export const createMockBrpService = () => {
             }
           : { found: false, person: null }
       );
+    },
+
+    async createMember(body: BrpCreateMemberRequest): Promise<BrpCreateMemberResponse> {
+      const person = {
+        id: nextPersonId++,
+        email: body.email.toLowerCase(),
+        firstname: body.firstname,
+        lastname: body.lastname
+      };
+      return withDelay({ person });
     }
   };
 };
