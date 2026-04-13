@@ -5,13 +5,14 @@ compatibility_date = "2026-04-13"
 [dev]
 port = 8787
 
-# D1 database for tenant config and settings
 [[d1_databases]]
 binding = "DB"
 database_name = "brp-platform"
-database_id = ""  # Set after: wrangler d1 create brp-platform
+database_id = "00000000-0000-0000-0000-000000000001"
 
-# KV namespace for domain-to-tenant mapping and product caching
 [[kv_namespaces]]
 binding = "DOMAIN_MAP"
 id = ""  # Set after: wrangler kv namespace create DOMAIN_MAP
+
+[vars]
+JWT_SECRET = "dev-only-change-me"

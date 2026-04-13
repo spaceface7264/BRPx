@@ -6,8 +6,11 @@ import type {
   BrpPaymentLinkRequest,
   TenantConfig
 } from "@brp/types";
+import { handleAdmin, type Env } from "./admin-routes";
 
 const mockBrp = createMockBrpService();
+
+export type { Env } from "./admin-routes";
 
 const json = (data: unknown, init?: ResponseInit): Response => {
   return new Response(JSON.stringify(data), {
@@ -217,12 +220,16 @@ const handleApiRoute = async (request: Request, url: URL): Promise<Response | nu
    ────────────────────────────────────────────────────────── */
 
 export default {
-  async fetch(request: Request): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/health") {
       return json({ ok: true, service: "worker" });
     }
+
+    // Admin API routes (/admin/*)
+    const adminRes = await handleAdmin(request, env, mockBrp);
+    if (adminRes) return adminRes;
 
     // Normalized API routes (checkout SPA)
     if (url.pathname.startsWith("/api/")) {

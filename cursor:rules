@@ -1,5 +1,13 @@
 # BRP Frontend Platform MVP: Claude Code Build Prompt
 
+## Active overrides (take precedence over earlier sections)
+- Stack is React + Vite + Tailwind v4 for both checkout and admin. Not vanilla JS.
+- Multi-language support (DA, SV, NO) is in scope. BRP API handles product translations via Accept-Language header. We handle UI chrome strings.
+- CPR/personnummer lookup is a primary signup method alongside email.
+- Customer type selector (Voksen, Student, Senior) is part of the checkout flow.
+- 3 templates needed: minimal, bold, branded. Not 2.
+- Coupon/campaign product support is in scope.
+
 ## What we're building
 
 A multi-tenant platform that lets businesses using BRP Systems replace their default goactivebooking.dk purchase frontend with a branded, modern alternative. The business connects their BRP API key, picks a template, sets their branding, and gets a hosted checkout frontend on their own domain.
@@ -365,3 +373,439 @@ Reference the BRP API documentation in docs/brp-api-reference.md for all endpoin
 - No drag-and-drop page builder
 - No internationalization (Danish only for MVP)
 - No Mailchimp or email marketing integrations
+
+
+---
+
+
+# Admin panel build prompt
+
+## Context
+
+We have a working checkout SPA in `packages/checkout` (React + Vite + Tailwind v4) that renders a 4-step purchase flow against a mock BRP API served by a Cloudflare Worker in `packages/worker`. Branding is loaded from `/tenant-config.json` via a `BrandingProvider` context. The checkout works: business units, products grouped by web category, email verification, order creation, payment link redirect.
+
+Now build the admin panel in `packages/admin`. This is where gym/studio owners configure their storefront. It needs to feel professional but ship fast. React + Vite + Tailwind v4 (same stack as checkout).
+
+---
+
+## Architecture
+
+The admin panel is a separate Vite SPA deployed to Cloudflare Pages. It talks to the Worker via `/admin/*` API routes. The Worker handles auth (JWT), tenant CRUD, and serves tenant config to the checkout.
+
+### New Worker routes needed
+
+```
+POST   /admin/auth/register     - create tenant account
+POST   /admin/auth/login        - login, return JWT
+POST   /admin/auth/logout       - invalidate token
+GET    /admin/tenant             - get full tenant config (auth required)
+PUT    /admin/tenant             - update tenant config (auth required)
+PUT    /admin/tenant/brp        - update BRP credentials + validate (auth required)
+PUT    /admin/tenant/branding   - update branding only (auth required)
+PUT    /admin/tenant/products   - update product display settings (auth required)
+PUT    /admin/tenant/domain     - set custom domain (auth required)
+GET    /admin/tenant/status     - connection status, domain verification, live/draft
+POST   /admin/tenant/publish    - set storefront live (auth required)
+POST   /admin/tenant/unpublish  - take storefront offline (auth required)
+GET    /admin/preview-config    - returns tenant config for preview iframe (no auth, uses preview token)
+```
+
+Auth: JWT in Authorization header. Store hashed passwords in D1. Token expiry 7 days. Refresh not needed for MVP.
+
+### D1 schema updates
+
+Add to the existing tenants table or create if not present:
+
+```sql
+CREATE TABLE IF NOT EXISTS tenants (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  business_name TEXT,
+  
+  -- BRP connection
+  brp_api_url TEXT,
+  brp_api_key TEXT,
+  brp_connected BOOLEAN DEFAULT FALSE,
+  brp_last_sync TEXT,
+  
+  -- Branding
+  logo_url TEXT,
+  primary_color TEXT DEFAULT '#4F46E5',
+  secondary_color TEXT DEFAULT '#F9FAFB',
+  font TEXT DEFAULT 'system',
+  template TEXT DEFAULT 'minimal',
+  
+  -- Product display
+  product_settings TEXT DEFAULT '{}',
+  
+  -- Domain
+  custom_domain TEXT,
+  domain_verified BOOLEAN DEFAULT FALSE,
+  platform_subdomain TEXT UNIQUE,
+  
+  -- Status
+  is_live BOOLEAN DEFAULT FALSE,
+  
+  -- Meta
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+```
+
+The `product_settings` JSON field stores:
+```json
+{
+  "displayMode": "cards",
+  "showDescriptions": true,
+  "categoryOrder": [3, 1, 2],
+  "hiddenProducts": [45, 67],
+  "featuredProducts": [12],
+  "showPrices": true
+}
+```
+
+---
+
+## Pages and routing
+
+Use React Router. Four main routes:
+
+### 1. `/login` and `/register`
+
+Clean, centered auth forms. Register asks for: email, password, business name. Login asks for: email, password. After login, redirect to `/dashboard`. Store JWT in localStorage.
+
+### 2. `/onboarding` (post-registration wizard)
+
+A 4-step guided setup that runs once after registration. Steps:
+
+**Step 1: Connect BRP**
+- Input: BRP API URL (e.g. `https://yourgym.brpsystems.com/brp`)
+- Input: API key or username/password for API auth
+- "Test connection" button
+- On success: show green checkmark, display business units found (e.g. "Found 3 locations: Aarhus, Copenhagen, Odense")
+- On fail: clear error message, suggest checking URL format and credentials
+- This step validates against the real BRP API (or mock in dev)
+
+**Step 2: Choose template**
+- Show 3 template options as visual cards with preview thumbnails
+- Minimal: light, clean, single column
+- Bold: dark header, grid layout, more visual weight  
+- Branded: hero section with background image, more immersive
+- Selecting one shows an inline preview (small iframe or screenshot)
+
+**Step 3: Set branding**
+- Business name (pre-filled from registration)
+- Logo upload (drag and drop or click to upload, store in R2 or base64)
+- Primary color picker (with preset swatches for common gym brand colors)
+- Secondary color picker
+- Font selector dropdown (System, Inter, DM Sans, Space Grotesk)
+- Live preview panel on the right side showing how the checkout header and a product card look with current settings
+
+**Step 4: Go live**
+- Summary of configuration
+- Platform subdomain shown: `yourbusiness.brpfront.dk`
+- Optional: custom domain input with CNAME instructions
+- Big "Publish your storefront" button
+- Confetti or success animation on publish
+
+After completing onboarding, redirect to `/dashboard`.
+
+### 3. `/dashboard` (main admin view)
+
+Single-page dashboard with sections. Not tabbed navigation. Vertical scroll with clear section headers. Each section is a card.
+
+**Status bar (top)**
+- Live/Draft indicator (green dot + "Live" or yellow dot + "Draft")
+- "View storefront" button (opens checkout in new tab)
+- Last synced with BRP timestamp
+
+**Section: BRP connection**
+- Current API URL and connection status
+- "Re-sync products" button (re-fetches from BRP)
+- List of synced business units
+- Product count per category
+- Edit credentials button (opens modal)
+
+**Section: Branding**
+- Current logo, colors, font displayed
+- "Edit branding" button opens the branding editor (same as onboarding step 3 but with the live preview iframe)
+
+**Section: Template**
+- Current template shown
+- Switch template (same picker as onboarding)
+
+**Section: Products**
+- Lists all products grouped by web category (pulled from BRP)
+- Each product row has:
+  - Toggle: visible/hidden
+  - Star icon: mark as featured (shows first in category)
+  - Drag handle: reorder within category
+- Category-level controls:
+  - Toggle: show/hide entire category
+  - Drag to reorder categories
+- Display mode toggle: cards vs list
+
+**Section: Domain**
+- Current domain and status
+- Platform subdomain (always available): `slug.brpfront.dk`
+- Custom domain input
+- CNAME target shown after entering domain
+- Verification status with "Check DNS" button
+- SSL status
+
+**Section: Settings**
+- Terms URL input
+- Privacy URL input
+- Google Analytics measurement ID
+- Redirect URL after successful purchase
+- "Danger zone": unpublish storefront, delete account
+
+### 4. `/preview` (iframe target)
+
+A lightweight route that loads the checkout SPA with tenant config from the admin, used as the preview iframe source in the branding editor. Not a user-facing page.
+
+---
+
+## Live preview editor
+
+This is the key feature that makes the admin panel feel premium. When editing branding or template, the right half of the screen (or bottom on mobile) shows a live preview of the checkout.
+
+Implementation:
+- Embed the checkout SPA in an iframe pointing to `/preview?tenant=TENANT_ID&token=PREVIEW_TOKEN`
+- The preview route on the Worker serves the checkout SPA with the tenant's current (draft) config
+- When the admin changes a color/font/logo in the editor, post a message to the iframe via `window.postMessage`
+- The checkout SPA listens for `postMessage` events and updates its branding context in real time
+- This means the BrandingProvider in the checkout needs to accept both: initial config from `/tenant-config.json` AND runtime updates via postMessage
+
+PostMessage format:
+```typescript
+interface BrandingUpdate {
+  type: 'branding-update'
+  payload: {
+    primaryColor?: string
+    secondaryColor?: string
+    font?: string
+    logoUrl?: string
+    businessName?: string
+    template?: string
+  }
+}
+```
+
+The checkout SPA should detect if it's in preview mode (URL param or parent frame check) and:
+- Listen for postMessage branding updates
+- Show mock data instead of requiring a real API
+- Disable actual navigation/payment
+- Show a "Preview mode" banner at the top
+
+---
+
+## Branding editor component
+
+This is reused in onboarding step 3 and the dashboard branding section. Build it as a standalone component.
+
+Layout: two columns on desktop, stacked on mobile.
+
+Left column (editor controls):
+- Business name text input
+- Logo upload area (drag-drop zone, shows current logo, click to replace)
+- Primary color: color input + text hex input + 8 preset swatches
+- Secondary color: same
+- Font selector: dropdown with preview of each font
+- Template selector: 3 cards with mini previews
+
+Right column (live preview):
+- iframe showing the checkout with current branding
+- Device toggle: desktop / mobile (resizes iframe width)
+- The iframe updates in real-time as controls change
+
+---
+
+## Product configurator component
+
+Reused in dashboard. Shows all products from BRP organized by web category.
+
+Features:
+- Fetch products from BRP (via Worker proxy)
+- Group by web category
+- Each category is a collapsible section with:
+  - Category name and product count
+  - Toggle to show/hide the entire category
+  - Drag handle to reorder categories
+- Each product row within a category:
+  - Product name and price
+  - Product type badge (subscription, valueCard, entry, event)
+  - Toggle: visible in storefront
+  - Star button: featured (appears first, gets highlighted styling)
+  - Drag handle for ordering
+- Use @dnd-kit/core for drag and drop (lightweight, works with React)
+- Save button that PUTs the product_settings JSON to the Worker
+
+---
+
+## Onboarding wizard component
+
+Full-screen wizard with step indicator at the top (like the checkout progress bar but for setup).
+
+- Step transitions animate left/right
+- Each step validates before allowing "Next"
+- "Back" button on each step
+- Progress is saved to the tenant record after each step (so refreshing doesn't lose progress)
+- Final step triggers publish
+
+---
+
+## Technical details
+
+### Packages to install in packages/admin:
+- react-router-dom (routing)
+- @dnd-kit/core + @dnd-kit/sortable (drag and drop for product configurator)
+- That's it. Keep it lean.
+
+### Vite config:
+- Proxy `/admin` and `/mock` to Worker on 8787 (like checkout does for `/mock`)
+- Separate dev port from checkout (e.g. 5174)
+
+### Shared components from shared/ui:
+- If shared/ui doesn't exist yet, create it
+- Move common components there: Button, Input, Card, LoadingSkeleton, StepProgress
+- Both checkout and admin import from @brp/ui
+
+### File structure:
+```
+packages/admin/
+  src/
+    main.tsx
+    App.tsx
+    index.css
+    api/
+      client.ts           - fetch wrapper with JWT injection
+      types.ts
+    context/
+      AuthContext.tsx       - JWT storage, login/logout, user state
+      TenantContext.tsx     - tenant config state
+    pages/
+      Login.tsx
+      Register.tsx
+      Onboarding.tsx
+      Dashboard.tsx
+    components/
+      BrandingEditor.tsx   - the live preview editor
+      ProductConfigurator.tsx
+      TemplateSelector.tsx
+      DomainSetup.tsx
+      BrpConnection.tsx
+      StatusBar.tsx
+    layouts/
+      AuthLayout.tsx       - centered card for login/register
+      DashboardLayout.tsx  - sidebar or top nav + content area
+```
+
+### Auth flow:
+1. User registers at `/register`
+2. Worker creates tenant in D1, returns JWT
+3. Frontend stores JWT in localStorage, sets in AuthContext
+4. All `/admin/*` requests include `Authorization: Bearer TOKEN`
+5. Worker validates JWT on every admin request
+6. On 401, redirect to `/login`
+
+### Preview flow:
+1. Admin opens branding editor
+2. Editor renders iframe: `src="/preview?tenant={id}&token={previewToken}"`
+3. Worker serves checkout SPA with tenant's draft config at that URL
+4. Admin changes color -> editor calls `iframe.contentWindow.postMessage(update)`
+5. Checkout SPA receives message, updates BrandingProvider state
+6. Preview updates instantly without reload
+
+---
+
+## What to build first (within this prompt)
+
+1. Worker admin API routes (auth, tenant CRUD)
+2. Auth pages (login, register) + AuthContext
+3. Dashboard layout with status bar
+4. BRP connection section
+5. Branding editor with live preview iframe
+6. Template selector
+7. Product configurator
+8. Domain setup section
+9. Onboarding wizard (combines steps 4-8 into guided flow)
+10. Settings + publish/unpublish
+
+---
+
+## Design direction
+
+The admin should feel like a modern SaaS tool. Think Linear, Vercel dashboard, or Stripe dashboard. Clean, professional, minimal chrome. Dark sidebar with light content area is a good default.
+
+- Use Tailwind v4 (same setup as checkout: `@import "tailwindcss"` in index.css)
+- Stick to the system font stack for the admin UI itself
+- Cards with subtle borders, not shadows
+- Status indicators: green for live/connected, amber for pending, red for errors
+- Toast notifications for save confirmations (build a simple toast system, no library needed)
+- Responsive but desktop-first (admin users are on desktop)
+
+---
+
+## Copy conventions
+
+- All UI copy in Danish for MVP
+- No em-dashes ever
+- Concise labels, no fluff
+- Error messages should be specific and actionable
+- Button labels: "Gem" (save), "Publicer" (publish), "Annuller" (cancel), "Rediger" (edit), "Slet" (delete), "Tilslut" (connect), "Test forbindelse" (test connection)
+
+## Field research findings (20 goactivebooking sites audited)
+
+### Template groups
+- A+B (simple/single-location): 45% of businesses. 1-10 products, minimal categories.
+- C (multi-location): 20%. Location selector needed, standardized products per location.
+- D (complex/multi-category): 35%. Memberships + events + booking + PT + klippekort. Needs flexible category system.
+- 3 templates cover 100% of use cases.
+
+### Visual quality
+- 90% scored 1-2 out of 5. Every site uses the same BRP Angular SPA with zero layout customization.
+- Only customization available: logo + primary color. This is the core problem we solve.
+
+### Product types (by frequency)
+- Memberships/subscriptions: 80%
+- Group classes: 70%
+- Klippekort/punch cards: 40%
+- Events/courses: 35%
+- Personal training: 25%
+- Court/facility booking: 20%
+- Gift cards: 15%
+
+### Signup flow (standard across 95% of sites)
+- CPR/personnummer is the primary identifier (70%). Must support CPR lookup in addition to email.
+- "Register without CPR" option exists as a toggle to manual form.
+- Standard fields (95%+): first name, last name, DOB, address, postal, city, phone (with country code), country dropdown.
+- Email is inferred/hidden behind CPR flow in most cases.
+- Gender: varies, some require, some skip.
+- No custom fields or emergency contacts observed in any signup.
+- Customer type selector is universal: Voksen/Almindelig always present, Student/Senior/Pensionist vary.
+
+### Payment
+- Always BRP-managed (DIBS/NETS card or autogiro). We never handle payment processing.
+- MobilePay mentioned but rare.
+
+### Geography
+- Sweden: 55%, Denmark: 25%, Norway: 20%.
+- Multi-language support (DA + SV + NO) needed. BRP API handles translations via Accept-Language header. We handle UI strings.
+- Language mismatch is common: BRP UI chrome shows in Danish even on SE/NO sites. We can fix this.
+
+### Campaigns
+- ~40% of sites have highlighted campaign/intro offers. Coupon support matters.
+
+### Technical observations
+- All sites expose document.goactivebooking config JSON with categories, settings, business units.
+- Same cookie banner (CookieInformation) across all sites.
+- BRP UI is 100% standardized Angular SPA. No variation in flow or layout.
+
+### Implications for build
+- CPR/personnummer lookup must be a first-class signup flow, not just email.
+- Customer type selector (Voksen, Student, Senior) must be built into checkout.
+- Support at minimum DA, SV, NO for UI strings.
+- Campaign/featured product highlighting is a real need (40% of sites use it).
+- Court/facility booking and group class scheduling are v2 features, not MVP.
