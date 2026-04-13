@@ -1,8 +1,10 @@
-/* ── Branding custom properties (overridden per tenant) ── */
+/* ── Branding custom properties ──
+   --tenant-* vars are injected at runtime by the Worker (inline <style>
+   or /api/config fetch). The --brand-* vars fall back to safe defaults. */
 :root {
-  --brand-primary: #111827;
-  --brand-secondary: #ffffff;
-  --brand-font: Inter, system-ui, sans-serif;
+  --brand-primary: var(--tenant-primary, #000000);
+  --brand-secondary: var(--tenant-secondary, #ffffff);
+  --brand-font: var(--tenant-font, system-ui);
   --brand-radius: 8px;
 }
 
@@ -50,7 +52,7 @@ body {
   margin: 20px 0;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
 }
 
 .steps li {
@@ -98,6 +100,17 @@ body {
   max-width: 420px;
 }
 
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.form label {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
 input {
   padding: 10px;
   border-radius: var(--brand-radius);
@@ -118,6 +131,57 @@ button {
   background: var(--brand-primary);
   color: var(--brand-secondary);
   font: inherit;
+}
+
+/* ── Inline validation ── */
+.field-error {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 2px;
+}
+
+.welcome-back {
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: var(--brand-radius);
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+/* ── Terms / consent ── */
+.terms {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.terms label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.terms input[type="checkbox"] {
+  margin-top: 2px;
+  width: auto;
+}
+
+/* ── Confirmation ── */
+.confirmation {
+  text-align: center;
+  padding: 32px 0;
+}
+
+.confirmation h2 {
+  color: var(--brand-primary);
+}
+
+.checkmark {
+  font-size: 3rem;
+  margin-bottom: 12px;
 }
 
 /* ── Summary ── */

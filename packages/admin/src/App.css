@@ -1,5 +1,39 @@
 /* Admin-specific component styles (supplements index.css) */
 
+/* ── Login ── */
+.login-page {
+  max-width: 400px;
+  padding-top: 80px;
+}
+
+.login-form {
+  display: grid;
+  gap: 8px;
+}
+
+.login-form label {
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+/* ── Dashboard header ── */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-secondary {
+  background: #fff;
+  color: #374151;
+  border: 1px solid #9ca3af;
+}
+
 .hint {
   color: #6b7280;
   font-size: 0.875rem;

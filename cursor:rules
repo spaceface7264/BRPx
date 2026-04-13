@@ -22,8 +22,8 @@ The core BRP purchase flow is universal: **Select Location > Select Product > Si
 ```
 brp-platform/
   packages/
-    checkout/          # tenant-facing purchase SPA (React)
-    admin/             # admin panel SPA (React)
+    checkout/          # tenant-facing purchase SPA (vanilla TypeScript)
+    admin/             # admin panel SPA (React + Tailwind)
     worker/            # Cloudflare Worker (proxy + routing)
   shared/
     types/             # shared TypeScript types

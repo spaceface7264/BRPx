@@ -1,7 +1,58 @@
-function App() {
+import { useState } from "react";
+
+function LoginPage({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError("Email og adgangskode er paakraevet");
+      return;
+    }
+    // MVP: accept any credentials, real auth comes with Worker admin API
+    onLogin();
+  };
+
+  return (
+    <main className="page login-page">
+      <h1>BRP Front Admin</h1>
+      <p className="lead">Log ind for at administrere din checkout.</p>
+      <form className="login-form" onSubmit={handleSubmit}>
+        <label htmlFor="login-email">Email</label>
+        <input
+          id="login-email"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="din@email.dk"
+          required
+        />
+        <label htmlFor="login-password">Adgangskode</label>
+        <input
+          id="login-password"
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+        {error && <p className="error">{error}</p>}
+        <button type="submit">Log ind</button>
+      </form>
+    </main>
+  );
+}
+
+function Dashboard({ onLogout }: { onLogout: () => void }) {
   return (
     <main className="page">
-      <h1>BRP Front Admin</h1>
+      <div className="dashboard-header">
+        <h1>BRP Front Admin</h1>
+        <button type="button" className="btn-secondary" onClick={onLogout}>
+          Log ud
+        </button>
+      </div>
       <p className="lead">
         Tenant dashboard for BRP connection, branding, and publish settings.
       </p>
@@ -97,6 +148,28 @@ function App() {
       </section>
     </main>
   );
+}
+
+function App() {
+  const [loggedIn, setLoggedIn] = useState(() => {
+    return localStorage.getItem("brp_admin_token") !== null;
+  });
+
+  const handleLogin = () => {
+    localStorage.setItem("brp_admin_token", "mock-jwt-token");
+    setLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("brp_admin_token");
+    setLoggedIn(false);
+  };
+
+  if (!loggedIn) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  return <Dashboard onLogout={handleLogout} />;
 }
 
 export default App;

@@ -1,5 +1,11 @@
 import { createMockBrpService } from "@brp/brp-api";
-import type { BrpAddOrderItemRequest, BrpCreateOrderRequest, BrpPaymentLinkRequest } from "@brp/types";
+import type {
+  BrpAddOrderItemRequest,
+  BrpCreateMemberRequest,
+  BrpCreateOrderRequest,
+  BrpPaymentLinkRequest,
+  TenantConfig
+} from "@brp/types";
 
 const mockBrp = createMockBrpService();
 
@@ -105,6 +111,27 @@ const handleMockRoute = async (request: Request, url: URL): Promise<Response | n
    ────────────────────────────────────────────────────────── */
 
 const handleApiRoute = async (request: Request, url: URL): Promise<Response | null> => {
+  // GET /api/config -- tenant branding + settings
+  if (url.pathname === "/api/config" && request.method === "GET") {
+    const config: TenantConfig = {
+      tenantId: "demo",
+      businessName: "Demo Gym A/S",
+      template: "minimal",
+      logoUrl: null,
+      primaryColor: "#000000",
+      secondaryColor: "#ffffff",
+      font: "system-ui",
+      skipLocationStep: false,
+      defaultLocationId: null,
+      productDisplay: "cards",
+      showProductDescriptions: true,
+      termsUrl: null,
+      privacyUrl: null,
+      successRedirectUrl: null
+    };
+    return json(config);
+  }
+
   // GET /api/locations
   if (url.pathname === "/api/locations" && request.method === "GET") {
     const data = await mockBrp.getBusinessUnits();
@@ -127,7 +154,17 @@ const handleApiRoute = async (request: Request, url: URL): Promise<Response | nu
     const body = (await request.json()) as { email?: string };
     if (!body.email) return badRequest("email is required");
     const data = await mockBrp.verifyPerson(body.email);
-    return json({ found: data.found, email: body.email });
+    return json({ found: data.found, email: body.email, person: data.person });
+  }
+
+  // POST /api/member/create
+  if (url.pathname === "/api/member/create" && request.method === "POST") {
+    const body = (await request.json()) as BrpCreateMemberRequest;
+    if (!body.email || !body.firstname || !body.lastname) {
+      return badRequest("firstname, lastname, and email are required");
+    }
+    const data = await mockBrp.createMember(body);
+    return json(data);
   }
 
   // POST /api/orders
