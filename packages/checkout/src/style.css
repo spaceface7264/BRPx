@@ -1,23 +1,49 @@
+/* ── Branding custom properties (overridden per tenant) ── */
 :root {
-  font-family: Inter, system-ui, sans-serif;
-  color: #1f2937;
-  background: #f8fafc;
+  --brand-primary: #111827;
+  --brand-secondary: #ffffff;
+  --brand-font: Inter, system-ui, sans-serif;
+  --brand-radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  font-family: var(--brand-font);
+  color: #1f2937;
+  background: #f8fafc;
 }
 
+/* ── Layout ── */
 .checkout {
   max-width: 760px;
   margin: 0 auto;
   padding: 24px 16px 56px;
 }
 
-.header h1 {
+/* ── Header ── */
+.header {
   margin-bottom: 8px;
 }
 
+.header h1 {
+  margin-bottom: 4px;
+  font-size: clamp(1.25rem, 2vw + 0.5rem, 1.75rem);
+}
+
+.header p {
+  color: #6b7280;
+}
+
+.logo {
+  max-height: 48px;
+  margin-bottom: 8px;
+}
+
+/* ── Step indicator ── */
 .steps {
   list-style: none;
   padding: 0;
@@ -32,14 +58,16 @@ body {
   border-radius: 999px;
   text-align: center;
   padding: 8px;
-  font-size: 14px;
+  font-size: clamp(0.75rem, 1vw + 0.25rem, 0.875rem);
+  transition: background 0.2s, color 0.2s;
 }
 
 .steps li.active {
-  background: #111827;
-  color: #fff;
+  background: var(--brand-primary);
+  color: var(--brand-secondary);
 }
 
+/* ── Grid and cards ── */
 .grid {
   display: grid;
   gap: 12px;
@@ -48,45 +76,65 @@ body {
 .card {
   border: 1px solid #d1d5db;
   background: #fff;
-  border-radius: 10px;
+  border-radius: var(--brand-radius);
   padding: 14px;
   text-align: left;
   display: grid;
   gap: 4px;
   cursor: pointer;
+  transition: border-color 0.15s;
+  font: inherit;
 }
 
+.card:hover,
+.card:focus-visible {
+  border-color: var(--brand-primary);
+}
+
+/* ── Forms ── */
 .form {
   display: grid;
   gap: 8px;
   max-width: 420px;
 }
 
-input,
+input {
+  padding: 10px;
+  border-radius: var(--brand-radius);
+  border: 1px solid #9ca3af;
+  font: inherit;
+}
+
+input:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 1px;
+}
+
 button {
   padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #9ca3af;
-}
-
-button {
+  border-radius: var(--brand-radius);
+  border: 1px solid transparent;
   cursor: pointer;
-  background: #111827;
-  color: white;
+  background: var(--brand-primary);
+  color: var(--brand-secondary);
+  font: inherit;
 }
 
+/* ── Summary ── */
 .summary {
   background: #fff;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: var(--brand-radius);
   padding: 12px;
 }
 
+/* ── Web categories ── */
 .webcategory {
   margin: 20px 0 8px;
   font-size: 1.05rem;
 }
 
+/* ── Utility ── */
 .muted {
   color: #6b7280;
 }
@@ -98,7 +146,55 @@ button {
 .status {
   background: #fef3c7;
   border: 1px solid #fcd34d;
-  border-radius: 8px;
+  border-radius: var(--brand-radius);
   padding: 10px 12px;
   margin-bottom: 12px;
+}
+
+/* ── Skeleton loading ── */
+.skeleton {
+  background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--brand-radius);
+  min-height: 60px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ══════════════════════════════════════════════
+   Template: Minimal (default)
+   White background, single column, lots of whitespace,
+   subtle borders, product cards in a vertical list.
+   ══════════════════════════════════════════════ */
+[data-template="minimal"] .grid {
+  grid-template-columns: 1fr;
+}
+
+/* ══════════════════════════════════════════════
+   Template: Bold
+   Dark header, product cards in a 2-col grid on desktop,
+   more visual weight. Better for gyms and fitness brands.
+   ══════════════════════════════════════════════ */
+[data-template="bold"] .header {
+  background: var(--brand-primary);
+  color: var(--brand-secondary);
+  margin: -24px -16px 0;
+  padding: 24px 16px 20px;
+}
+
+[data-template="bold"] .header p {
+  color: var(--brand-secondary);
+  opacity: 0.85;
+}
+
+[data-template="bold"] .grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+[data-template="bold"] .card {
+  border-width: 2px;
 }

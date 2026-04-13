@@ -11,9 +11,8 @@ The core BRP purchase flow is universal: **Select Location > Select Product > Si
 ## Architecture
 
 ### Stack
-- **Frontend (tenant-facing checkout):** React SPA, Vite, deployed to Cloudflare Pages
-- **Admin panel:** React SPA, Vite, deployed to Cloudflare Pages
-- **Shared component library:** Both apps share a common UI component set (buttons, inputs, cards, loading skeletons, step indicators) in `shared/ui/`
+- **Frontend (tenant-facing checkout):** Vanilla TypeScript SPA, Vite, deployed to Cloudflare Pages. No framework -- keep it light and fast.
+- **Admin panel:** React SPA, Vite, Tailwind CSS, deployed to Cloudflare Pages
 - **API proxy + routing:** Cloudflare Workers
 - **Tenant config + data:** Cloudflare D1 (SQLite) for structured tenant data, KV for fast domain-to-tenant lookups
 - **Custom domains:** Cloudflare for SaaS (custom hostnames via API)
@@ -28,7 +27,6 @@ brp-platform/
     worker/            # Cloudflare Worker (proxy + routing)
   shared/
     types/             # shared TypeScript types
-    ui/                # shared React components (Button, Input, Card, Skeleton, StepIndicator)
     brp-api/           # BRP API client and response normalization
     utils/             # shared utilities (formatPrice, roundToHalfKrone, etc.)
   wrangler.toml
@@ -50,13 +48,16 @@ Every incoming request is matched to a tenant:
 - If no match, return a generic 404 page
 
 ### 2. BRP API proxy
-The checkout SPA never talks to BRP directly. All BRP requests go through the Worker:
-- `GET /api/locations` - fetch locations for this tenant's BRP account
+The checkout SPA never talks to BRP directly. All BRP requests go through the Worker via normalized `/api/*` routes:
+- `GET /api/locations` - fetch business units/locations for this tenant's BRP account
 - `GET /api/products?locationId=X` - fetch products at a location
 - `POST /api/member/lookup` - check if email exists in BRP
 - `POST /api/member/create` - create new member in BRP
-- `POST /api/payment/create` - generate BRP payment link
+- `POST /api/orders` - create a new order
+- `POST /api/orders/:id/items` - add item to order
+- `POST /api/orders/:id/payment-link` - generate BRP payment link
 - The Worker injects the tenant's BRP API credentials on every proxied request
+- In development, `/api/*` routes forward to the mock BRP service internally
 - Cache product/location data in KV with 15-minute TTL (these rarely change)
 - Never expose BRP API keys to the client
 
@@ -184,7 +185,6 @@ Templates are CSS variations, not separate codebases. Use a `data-template` attr
 - All prices from BRP are in the smallest currency unit (ore/cents). Divide by 100 for display. Format with Danish locale (`da-DK`).
 - Use `roundToHalfKrone()` for DKK prices: round to nearest 0.50 kr.
 - Mobile-first responsive design. The checkout must work perfectly on a phone.
-- No framework. Vanilla JS with ES modules. Keep it light and fast.
 - Minimal dependencies. No UI library. CSS is hand-written.
 - Step transitions should feel smooth (simple CSS transitions, no heavy animation library).
 - Form validation is inline, not alert-based.
