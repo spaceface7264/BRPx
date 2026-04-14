@@ -46,6 +46,7 @@ type TenantRow = {
   post_purchase_redirect_url: string | null;
   onboarding_step: number;
   preview_token: string | null;
+  language?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -111,7 +112,8 @@ function tenantPublic(row: TenantRow): Record<string, unknown> {
     gaMeasurementId: row.ga_measurement_id,
     postPurchaseRedirectUrl: row.post_purchase_redirect_url,
     onboardingStep: row.onboarding_step,
-    previewToken: row.preview_token
+    previewToken: row.preview_token,
+    language: row.language ?? "da"
   };
 }
 
@@ -194,7 +196,7 @@ async function testBrpFetch(baseUrl: string, apiKey: string | undefined): Promis
   if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
     return { ok: false, error: "URL skal starte med http:// eller https://" };
   }
-  const target = `${trimmed}/businessunits`;
+  const target = `${trimmed}/api/ver3/businessunits`;
   const headers = new Headers({ accept: "application/json" });
   if (apiKey) {
     headers.set("authorization", `Bearer ${apiKey}`);
@@ -331,6 +333,7 @@ export async function handleAdmin(
     if ("privacyUrl" in body) str("privacy_url", body.privacyUrl);
     if ("gaMeasurementId" in body) str("ga_measurement_id", body.gaMeasurementId);
     if ("postPurchaseRedirectUrl" in body) str("post_purchase_redirect_url", body.postPurchaseRedirectUrl);
+    if ("language" in body) str("language", body.language);
     if ("onboardingStep" in body) num("onboarding_step", body.onboardingStep);
     if (sets.length === 0) return json({ tenant: tenantPublic(tenant) });
     sets.push("updated_at = ?");

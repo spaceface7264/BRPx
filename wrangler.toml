@@ -10,9 +10,5 @@ binding = "DB"
 database_name = "brp-platform"
 database_id = "00000000-0000-0000-0000-000000000001"
 
-[[kv_namespaces]]
-binding = "DOMAIN_MAP"
-id = ""  # Set after: wrangler kv namespace create DOMAIN_MAP
-
 [vars]
 JWT_SECRET = "dev-only-change-me"

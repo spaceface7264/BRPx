@@ -5,13 +5,17 @@ type BusinessUnitStepProps = {
   isLoading: boolean;
   error: string | null;
   onSelect: (unit: BrpBusinessUnit) => void;
+  title: string;
+  subtitle: string;
 };
 
 export function BusinessUnitStep({
   units,
   isLoading,
   error,
-  onSelect
+  onSelect,
+  title,
+  subtitle
 }: BusinessUnitStepProps) {
   if (isLoading) {
     return (
@@ -29,8 +33,8 @@ export function BusinessUnitStep({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900">Choose location</h2>
-        <p className="mt-1 text-sm text-slate-500">Pick the facility where you want to buy.</p>
+        <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
       </div>
       {error ? (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">

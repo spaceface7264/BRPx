@@ -6,7 +6,7 @@ import { useTenant } from "../context/TenantContext.tsx";
 import { useToast } from "../context/ToastContext.tsx";
 import { type TemplateId, TemplateSelector } from "./TemplateSelector.tsx";
 
-const checkoutOrigin = import.meta.env.VITE_CHECKOUT_URL ?? "http://127.0.0.1:5173";
+const checkoutOrigin = import.meta.env.VITE_CHECKOUT_URL ?? "http://localhost:5173";
 
 const presets = ["#4F46E5", "#0EA5E9", "#10B981", "#F97316", "#DC2626", "#111827", "#7C3AED", "#E11D48"];
 
@@ -130,10 +130,12 @@ export function BrandingEditor({ tenant, mode = "dashboard", onDraftChange }: Br
   };
 
   const token = tenant.previewToken ?? "";
-  const iframeSrc =
-    token.length > 0
-      ? `${checkoutOrigin}/?preview=1&token=${encodeURIComponent(token)}`
-      : `${checkoutOrigin}/?preview=1`;
+  const isDev = import.meta.env.DEV;
+  const iframeSrc = isDev
+    ? "http://localhost:5173?preview=true"
+    : token.length > 0
+      ? `${checkoutOrigin}/?preview=true&token=${encodeURIComponent(token)}`
+      : `${checkoutOrigin}/?preview=true`;
 
   const inner = (
     <div className="grid gap-6 lg:grid-cols-2">

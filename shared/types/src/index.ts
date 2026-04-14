@@ -207,6 +207,7 @@ export interface TenantConfig {
   primaryColor: string;
   secondaryColor: string;
   font: string;
+  language?: "da" | "sv" | "no";
   skipLocationStep: boolean;
   defaultLocationId: string | null;
   productDisplay: "cards" | "list";

@@ -9,6 +9,8 @@ type ProductsStepProps = {
   error: string | null;
   onSelect: (product: BrpProduct) => void;
   onBack: () => void;
+  title: string;
+  backLabel: string;
 };
 
 function groupProductsByWebCategory(
@@ -41,7 +43,9 @@ export function ProductsStep({
   isLoading,
   error,
   onSelect,
-  onBack
+  onBack,
+  title,
+  backLabel
 }: ProductsStepProps) {
   const grouped = groupProductsByWebCategory(categories, products);
 
@@ -49,7 +53,7 @@ export function ProductsStep({
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Products</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
           <p className="mt-1 text-sm text-slate-500">{businessUnit.name}</p>
         </div>
         <button
@@ -57,7 +61,7 @@ export function ProductsStep({
           onClick={onBack}
           className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
         >
-          Back
+          {backLabel}
         </button>
       </div>
       {error ? (

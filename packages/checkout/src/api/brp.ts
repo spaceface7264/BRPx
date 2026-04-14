@@ -16,16 +16,16 @@ const json = async <T>(res: Response): Promise<T> => {
 };
 
 export async function fetchBusinessUnits(): Promise<BrpBusinessUnit[]> {
-  const res = await fetch("/mock/brp/businessunits");
-  const data = await json<{ businessunits: BrpBusinessUnit[] }>(res);
-  return data.businessunits;
+  const res = await fetch("/api/business-units");
+  const data = await json<BrpBusinessUnit[] | { businessunits: BrpBusinessUnit[] }>(res);
+  return Array.isArray(data) ? data : data.businessunits;
 }
 
 export async function fetchWebCategories(businessUnitId: number): Promise<BrpWebCategory[]> {
   const q = new URLSearchParams({ businessunitids: String(businessUnitId) });
-  const res = await fetch(`/mock/brp/webcategories?${q}`);
-  const data = await json<{ webcategories: BrpWebCategory[] }>(res);
-  return data.webcategories;
+  const res = await fetch(`/api/webcategories?${q}`);
+  const data = await json<BrpWebCategory[] | { webcategories: BrpWebCategory[] }>(res);
+  return Array.isArray(data) ? data : data.webcategories;
 }
 
 export async function fetchProducts(businessUnitId: number): Promise<BrpProduct[]> {
@@ -33,13 +33,13 @@ export async function fetchProducts(businessUnitId: number): Promise<BrpProduct[
     businessunitids: String(businessUnitId),
     bookablefrominternet: "true"
   });
-  const res = await fetch(`/mock/brp/products?${q}`);
+  const res = await fetch(`/api/products?${q}`);
   const data = await json<{ products: BrpProduct[] }>(res);
   return data.products;
 }
 
 export async function verifyPerson(email: string): Promise<BrpPersonVerifyResponse> {
-  const res = await fetch("/mock/brp/persons/verify", {
+  const res = await fetch("/api/member/lookup", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email })
@@ -48,7 +48,7 @@ export async function verifyPerson(email: string): Promise<BrpPersonVerifyRespon
 }
 
 export async function createOrder(businessUnitId: number): Promise<BrpOrder> {
-  const res = await fetch("/mock/brp/orders", {
+  const res = await fetch("/api/orders", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ currentbusinessunitid: businessUnitId, preliminary: true })
@@ -58,7 +58,7 @@ export async function createOrder(businessUnitId: number): Promise<BrpOrder> {
 }
 
 export async function addOrderItem(orderId: number, productId: number, quantity: number): Promise<BrpOrder> {
-  const res = await fetch(`/mock/brp/orders/${orderId}/items`, {
+  const res = await fetch(`/api/orders/${orderId}/items`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ productid: productId, quantity })
@@ -68,7 +68,7 @@ export async function addOrderItem(orderId: number, productId: number, quantity:
 }
 
 export async function createPaymentLink(orderId: number, email: string): Promise<BrpPaymentLinkResponse> {
-  const res = await fetch(`/mock/brp/orders/${orderId}/payment-link`, {
+  const res = await fetch(`/api/orders/${orderId}/payment-link`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ email, paymentmethodid: 1 })

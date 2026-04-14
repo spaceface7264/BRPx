@@ -17,6 +17,8 @@ export type TenantConfig = {
   secondaryColor: string;
   fontFamily: string;
   template: TenantTemplate;
+  isLive?: boolean;
+  language?: "da" | "sv" | "no";
 };
 
 const defaultConfig: TenantConfig = {
@@ -81,8 +83,9 @@ const BrandingContext = createContext<BrandingContextValue | null>(null);
 
 function readPreviewParams(): { preview: boolean; token: string | null } {
   const params = new URLSearchParams(window.location.search);
+  const previewParam = params.get("preview");
   return {
-    preview: params.get("preview") === "1",
+    preview: previewParam === "true" || previewParam === "1",
     token: params.get("token")
   };
 }
@@ -156,7 +159,7 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        const res = await fetch("/tenant-config.json");
+        const res = await fetch("/api/config");
         if (!res.ok) {
           if (!cancelled) {
             applyCssVariables(defaultConfig);
@@ -164,10 +167,10 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
           }
           return;
         }
-        const raw = (await res.json()) as Partial<TenantConfig> & { font?: string };
+        const raw = (await res.json()) as Partial<TenantConfig> & { font?: string; logoUrl?: string | null };
         const merged: TenantConfig = {
           businessName: typeof raw.businessName === "string" ? raw.businessName : defaultConfig.businessName,
-          logoUrl: typeof raw.logoUrl === "string" ? raw.logoUrl : defaultConfig.logoUrl,
+          logoUrl: typeof raw.logoUrl === "string" && raw.logoUrl.length > 0 ? raw.logoUrl : defaultConfig.logoUrl,
           primaryColor: typeof raw.primaryColor === "string" ? raw.primaryColor : defaultConfig.primaryColor,
           secondaryColor: typeof raw.secondaryColor === "string" ? raw.secondaryColor : defaultConfig.secondaryColor,
           fontFamily:
@@ -176,7 +179,9 @@ export function BrandingProvider({ children }: { children: ReactNode }) {
               : typeof raw.font === "string"
                 ? fontIdToStack(raw.font)
                 : defaultConfig.fontFamily,
-          template: normalizeTemplate(raw.template)
+          template: normalizeTemplate(raw.template),
+          isLive: typeof raw.isLive === "boolean" ? raw.isLive : true,
+          language: raw.language === "sv" || raw.language === "no" ? raw.language : "da"
         };
         if (!cancelled) {
           setConfig(merged);

@@ -7,6 +7,11 @@ type EmailStepProps = {
   error: string | null;
   onSubmit: (email: string) => void;
   onBack: () => void;
+  title: string;
+  subtitle: string;
+  backLabel: string;
+  emailLabel: string;
+  ctaLabel: string;
 };
 
 export function EmailStep({
@@ -14,21 +19,26 @@ export function EmailStep({
   isSubmitting,
   error,
   onSubmit,
-  onBack
+  onBack,
+  title,
+  subtitle,
+  backLabel,
+  emailLabel,
+  ctaLabel
 }: EmailStepProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Your email</h2>
-          <p className="mt-1 text-sm text-slate-500">We use this to find or create your profile.</p>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
         </div>
         <button
           type="button"
           onClick={onBack}
           className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
         >
-          Back
+          {backLabel}
         </button>
       </div>
       <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-sm text-slate-700">
@@ -46,7 +56,7 @@ export function EmailStep({
       >
         <div>
           <label htmlFor="checkout-email" className="mb-1 block text-sm font-medium text-slate-700">
-            Email
+            {emailLabel}
           </label>
           <input
             id="checkout-email"
@@ -70,7 +80,7 @@ export function EmailStep({
           className="w-full rounded-xl px-4 py-3.5 text-base font-semibold text-white shadow-sm transition enabled:active:scale-[0.99] disabled:opacity-60"
           style={{ backgroundColor: "var(--brand-primary, #111827)" }}
         >
-          {isSubmitting ? "Checking…" : "Continue"}
+          {isSubmitting ? "..." : ctaLabel}
         </button>
       </form>
       <p className="text-xs text-slate-400">Try test@test.com for an existing person in the mock API.</p>

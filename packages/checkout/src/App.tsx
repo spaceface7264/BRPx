@@ -17,6 +17,45 @@ import { BusinessUnitStep } from "./steps/BusinessUnitStep.tsx";
 import { EmailStep } from "./steps/EmailStep.tsx";
 import { ProductsStep } from "./steps/ProductsStep.tsx";
 import { SummaryPaymentStep } from "./steps/SummaryPaymentStep.tsx";
+import { createTranslator } from "./i18n.ts";
+
+const previewBusinessUnits: BrpBusinessUnit[] = [
+  { id: 1, name: "Preview Center", mailaddress: "Mockvej 1, 2100 Kobenhavn" }
+];
+
+const previewCategories: BrpWebCategory[] = [
+  { id: 101, name: "Membership", sortorder: 1 },
+  { id: 102, name: "Drop-in", sortorder: 2 }
+];
+
+const previewProductsByUnit: Record<number, BrpProduct[]> = {
+  1: [
+    {
+      id: 1001,
+      number: "M-001",
+      name: "Premium Membership",
+      description: "Unlimited access, mock preview data.",
+      priceincvat: 34900,
+      priceexvat: 27920,
+      producttype: "subscription",
+      webcategoryid: 101,
+      webcategory: "Membership",
+      bookablefrominternet: true
+    },
+    {
+      id: 1002,
+      number: "D-001",
+      name: "Day Pass",
+      description: "One-time access ticket.",
+      priceincvat: 9900,
+      priceexvat: 7920,
+      producttype: "entry",
+      webcategoryid: 102,
+      webcategory: "Drop-in",
+      bookablefrominternet: true
+    }
+  ]
+};
 
 function headerSurfaceClass(template: string): string {
   if (template === "bold") return "bg-slate-900 text-white border-slate-800";
@@ -46,6 +85,13 @@ export function App() {
   const [emailError, setEmailError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setBusinessUnits(previewBusinessUnits);
+      setUnitsError(null);
+      setUnitsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     (async () => {
       setUnitsLoading(true);
@@ -64,7 +110,7 @@ export function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isPreviewMode]);
 
   const handleSelectUnit = useCallback(async (unit: BrpBusinessUnit) => {
     setSelectedUnit(unit);
@@ -73,6 +119,12 @@ export function App() {
     setWebCategories([]);
     setProducts([]);
     setStep(2);
+    if (isPreviewMode) {
+      setWebCategories(previewCategories);
+      setProducts(previewProductsByUnit[unit.id] ?? []);
+      setCatalogLoading(false);
+      return;
+    }
     try {
       const [cats, prods] = await Promise.all([fetchWebCategories(unit.id), fetchProducts(unit.id)]);
       setWebCategories(cats);
@@ -82,7 +134,13 @@ export function App() {
     } finally {
       setCatalogLoading(false);
     }
-  }, []);
+  }, [isPreviewMode]);
+
+  useEffect(() => {
+    if (!unitsLoading && !unitsError && !selectedUnit && businessUnits.length === 1) {
+      void handleSelectUnit(businessUnits[0]);
+    }
+  }, [businessUnits, handleSelectUnit, selectedUnit, unitsError, unitsLoading]);
 
   const handleSelectProduct = useCallback((product: BrpProduct) => {
     setSelectedProduct(product);
@@ -128,6 +186,7 @@ export function App() {
 
   const tpl = config.template;
   const headerMuted = tpl === "minimal" ? "text-slate-500" : "text-white/70";
+  const t = createTranslator((config as { language?: string }).language);
 
   return (
     <div
@@ -136,10 +195,10 @@ export function App() {
     >
       {isPreviewMode ? (
         <div
-          className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-950"
+          className="pointer-events-none fixed right-3 top-3 z-50 rounded-full border border-amber-300 bg-amber-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-900 shadow-sm"
           role="status"
         >
-          Forhåndsvisning: betaling er deaktiveret
+          {t("status.preview")}
         </div>
       ) : null}
       <header className={`border-b ${headerSurfaceClass(tpl)}`}>
@@ -179,16 +238,26 @@ export function App() {
       ) : null}
 
       <main className="mx-auto max-w-lg px-4 py-6 sm:px-5 sm:py-8">
-        {step === 1 ? (
+        {!isPreviewMode && config.isLive === false ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+            <h2 className="text-lg font-semibold text-slate-900">{t("status.comingSoonTitle")}</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {config.businessName} - {t("status.comingSoonBody")}
+            </p>
+          </div>
+        ) : null}
+        {!isPreviewMode && config.isLive === false ? null : step === 1 ? (
           <BusinessUnitStep
             units={businessUnits}
             isLoading={unitsLoading}
             error={unitsError}
             onSelect={handleSelectUnit}
+            title={t("step.location")}
+            subtitle={t("step.location")}
           />
         ) : null}
 
-        {step === 2 && selectedUnit ? (
+        {!isPreviewMode && config.isLive === false ? null : step === 2 && selectedUnit ? (
           <ProductsStep
             businessUnit={selectedUnit}
             categories={webCategories}
@@ -197,26 +266,41 @@ export function App() {
             error={catalogError}
             onSelect={handleSelectProduct}
             onBack={goBackFromProducts}
+            title={t("step.products")}
+            backLabel={t("button.back")}
           />
         ) : null}
 
-        {step === 3 && selectedProduct ? (
+        {!isPreviewMode && config.isLive === false ? null : step === 3 && selectedProduct ? (
           <EmailStep
             product={selectedProduct}
             isSubmitting={emailSubmitting}
             error={emailError}
             onSubmit={handleEmailSubmit}
             onBack={goBackFromEmail}
+            title={t("step.email")}
+            subtitle={t("step.email")}
+            backLabel={t("button.back")}
+            emailLabel={t("label.email")}
+            ctaLabel={t("button.continue")}
           />
         ) : null}
 
-        {step === 4 && selectedUnit && selectedProduct && verifyResult ? (
+        {!isPreviewMode && config.isLive === false ? null : step === 4 && selectedUnit && selectedProduct && verifyResult ? (
           <SummaryPaymentStep
             businessUnit={selectedUnit}
             product={selectedProduct}
             email={email}
             verify={verifyResult}
             onBack={goBackFromSummary}
+            title={t("step.summary")}
+            subtitle={t("step.summary")}
+            backLabel={t("button.back")}
+            payLabel={t("button.pay")}
+            locationLabel={t("label.location")}
+            productLabel={t("label.product")}
+            emailLabel={t("label.email")}
+            totalLabel={t("label.total")}
           />
         ) : null}
       </main>

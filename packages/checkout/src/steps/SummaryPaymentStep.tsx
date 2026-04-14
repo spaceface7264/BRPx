@@ -14,6 +14,14 @@ type SummaryPaymentStepProps = {
   email: string;
   verify: BrpPersonVerifyResponse;
   onBack: () => void;
+  title: string;
+  subtitle: string;
+  backLabel: string;
+  payLabel: string;
+  locationLabel: string;
+  productLabel: string;
+  emailLabel: string;
+  totalLabel: string;
 };
 
 export function SummaryPaymentStep({
@@ -21,7 +29,15 @@ export function SummaryPaymentStep({
   product,
   email,
   verify,
-  onBack
+  onBack,
+  title,
+  subtitle,
+  backLabel,
+  payLabel,
+  locationLabel,
+  productLabel,
+  emailLabel,
+  totalLabel
 }: SummaryPaymentStepProps) {
   const { isPreviewMode } = useBranding();
   const [isPaying, setIsPaying] = useState(false);
@@ -46,8 +62,8 @@ export function SummaryPaymentStep({
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Order summary</h2>
-          <p className="mt-1 text-sm text-slate-500">Review and continue to payment.</p>
+          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+          <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
         </div>
         <button
           type="button"
@@ -55,7 +71,7 @@ export function SummaryPaymentStep({
           disabled={isPaying}
           className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
         >
-          Back
+          {backLabel}
         </button>
       </div>
 
@@ -65,21 +81,21 @@ export function SummaryPaymentStep({
         aria-label="Order details"
       >
         <div className="flex justify-between gap-4 text-sm">
-          <span className="text-slate-500">Location</span>
+          <span className="text-slate-500">{locationLabel}</span>
           <span className="text-right font-medium text-slate-900">{businessUnit.name}</span>
         </div>
         <div className="h-px bg-slate-100" />
         <div className="flex justify-between gap-4 text-sm">
-          <span className="text-slate-500">Product</span>
+          <span className="text-slate-500">{productLabel}</span>
           <span className="text-right font-medium text-slate-900">{product.name}</span>
         </div>
         <div className="flex justify-between gap-4 text-sm">
-          <span className="text-slate-500">Email</span>
+          <span className="text-slate-500">{emailLabel}</span>
           <span className="break-all text-right font-medium text-slate-900">{email}</span>
         </div>
         <div className="h-px bg-slate-100" />
         <div className="flex justify-between gap-4 text-base">
-          <span className="font-medium text-slate-900">Total (incl. VAT)</span>
+          <span className="font-medium text-slate-900">{totalLabel}</span>
           <span className="font-semibold text-slate-900">{formatPriceIncVat(product.priceincvat)}</span>
         </div>
       </div>
@@ -114,7 +130,7 @@ export function SummaryPaymentStep({
         className="w-full rounded-xl px-4 py-3.5 text-base font-semibold text-white shadow-sm transition enabled:active:scale-[0.99] disabled:opacity-60"
         style={{ backgroundColor: "var(--brand-primary, #111827)" }}
       >
-        {isPreviewMode ? "Forhåndsvisning" : isPaying ? "Redirecting…" : "Pay securely"}
+        {isPreviewMode ? "Forhåndsvisning" : isPaying ? "Redirecting…" : payLabel}
       </button>
       <p className="text-center text-xs text-slate-400">
         {isPreviewMode ? "Betaling er slået fra i forhåndsvisning." : "You will leave this site to complete payment."}
